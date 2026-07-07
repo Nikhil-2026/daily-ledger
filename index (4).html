@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Ledger</title>
+<style>
+:root{
+  --bg:#0f1320; --bg2:#161c2e; --card:#1b2236; --border:#2a3350; --text:#eef1f8; --muted:#8b93ab;
+  --accent:#7c5cff; --accent2:#22d3ee; --green:#34d399; --red:#fb7185; --amber:#fbbf24; --radius:14px;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:radial-gradient(circle at top left, var(--bg2), var(--bg) 60%);color:var(--text);min-height:100vh;}
+.wrap{max-width:1000px;margin:0 auto;padding:16px;}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;}
+h1{font-size:22px;margin:0;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;}
+.sub{color:var(--muted);font-size:13px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+select, input, button, textarea{font-family:inherit;font-size:14px;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);}
+input::placeholder, textarea::placeholder{color:var(--muted);}
+button{cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;font-weight:600;box-shadow:0 4px 14px rgba(124,92,255,0.35);}
+button.secondary{background:var(--card);color:var(--text);border:1px solid var(--border);box-shadow:none;}
+button.danger{background:var(--red);box-shadow:none;}
+button:active{transform:scale(0.97);}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+.summary .box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
+.summary .box .lbl{font-size:12px;color:var(--muted);margin-bottom:6px;}
+.summary .box .val{font-size:20px;font-weight:800;}
+.green{color:var(--green);} .red{color:var(--red);} .amber{color:var(--amber);}
+.months{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;}
+.month{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;box-shadow:0 8px 24px rgba(0,0,0,0.2);}
+.month h3{margin:0 0 8px;font-size:14px;text-align:center;color:var(--accent2);}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.dow{font-size:10px;color:var(--muted);text-align:center;}
+.day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:8px;cursor:pointer;position:relative;border:1px solid transparent;transition:background .15s;}
+.day:hover{border-color:var(--accent);background:rgba(124,92,255,0.12);}
+.day.empty{cursor:default;}
+.day.has-data{background:rgba(124,92,255,0.22);font-weight:700;color:#fff;}
+.day.today{outline:2px solid var(--accent2);}
+.dot{position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--green);}
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:50;padding:14px;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:380px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+.modal h2{margin:0 0 12px;font-size:16px;color:var(--accent2);}
+.field{margin-bottom:10px;}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+.field input, .field textarea{width:100%;}
+.field-row{display:flex;gap:6px;}
+.field-row textarea{flex:1;}
+.mic-btn{flex-shrink:0;padding:9px 12px;}
+.mic-btn.listening{background:var(--red);}
+.modal-actions{display:flex;gap:8px;margin-top:14px;}
+.modal-actions button{flex:1;}
+.ledger-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
+.ledger-pill{display:flex;align-items:center;gap:6px;background:var(--card);color:var(--text);border:1px solid var(--border);font-weight:500;border-radius:999px;padding:7px 8px 7px 14px;box-shadow:none;cursor:pointer;}
+.ledger-pill.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent;}
+.ledger-pill .x{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;}
+.add-ledger-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;padding:0;flex-shrink:0;}
+.page{min-height:60vh;border-radius:var(--radius);padding:20px;margin-bottom:14px;transition:background 0.3s;}
+.page-calendar{background:linear-gradient(135deg,#0f1a2e 0%,#1a1040 100%);border:1px solid #2a3350;}
+.page-dues{background:linear-gradient(135deg,#0d1f18 0%,#0a1a2a 100%);border:1px solid #1a3328;}
+.page-activity{background:linear-gradient(135deg,#1a0f2e 0%,#2a1040 100%);border:1px solid #3a2050;}
+.page-monthly{background:linear-gradient(135deg,#1a1000 0%,#2a1a00 100%);border:1px solid #3a2800;}
+.page-title{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.page-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.page-icon-cal{background:rgba(124,92,255,0.25);}
+.page-icon-dues{background:rgba(52,211,153,0.2);}
+.page-icon-activity{background:rgba(167,139,250,0.2);}
+.page-icon-monthly{background:rgba(251,191,36,0.2);}
+.page-label{font-size:18px;font-weight:700;letter-spacing:0.3px;}
+.page-label-cal{color:#a78bfa;}
+.page-label-dues{color:#34d399;}
+.page-label-activity{color:#c4b5fd;}
+.page-label-monthly{color:#fbbf24;}
+.hidden{display:none;}
+.activity-log{max-height:160px;overflow:auto;font-size:12px;color:var(--muted);}
+.activity-log div{padding:6px 0;border-bottom:1px solid var(--border);}
+.tabbar{display:flex;gap:8px;margin-bottom:14px;border-bottom:1px solid var(--border);}
+.tabbar button{background:none;border:none;color:var(--muted);font-weight:600;padding:8px 4px;border-bottom:2px solid transparent;box-shadow:none;border-radius:0;}
+.tabbar button.active{color:var(--accent2);border-bottom-color:var(--accent2);}
+.due-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;gap:8px;}
+.due-item:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+
+<div class="wrap auth-wrap" id="authScreen">
+  <div class="card">
+    <h1 style="margin-bottom:4px;">Daily Ledger</h1>
+    <p class="sub" style="margin-bottom:16px;">Sign in to your private ledger</p>
+    <div class="field"><label>Email</label><input type="email" id="authEmail" placeholder="you@example.com"></div>
+    <div class="field"><label>Password</label><input type="password" id="authPassword" placeholder="At least 6 characters"></div>
+    <div class="row" style="margin-top:12px;">
+      <button id="loginBtn" style="flex:1;">Log in</button>
+      <button id="signupBtn" class="secondary" style="flex:1;">Sign up</button>
+    </div>
+    <p id="authError" class="small" style="color:var(--red);margin-top:10px;"></p>
+  </div>
+</div>
+
+<div class="wrap hidden" id="appScreen">
+  <header>
+    <div>
+      <h1>Daily Ledger</h1>
+      <div class="sub" id="userEmailLabel"></div>
+    </div>
+    <div class="row">
+      <select id="yearSelect"></select>
+      <button class="secondary" id="exportBtn">Export CSV</button>
+      <button class="secondary" id="logoutBtn">Log out</button>
+    </div>
+  </header>
+
+  <div class="ledger-tabs" id="ledgerTabs"></div>
+  <div class="tabbar" id="mainTabs">
+    <button class="active" data-tab="calendar">Calendar</button>
+    <button data-tab="dues">Pending dues</button>
+    <button data-tab="activity">Activity log</button>
+    <button data-tab="monthly">Monthly summary</button>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2 id="modalTitle">Entry</h2>
+    <div class="field"><label>Money spent</label>
+      <div class="field-row"><input type="number" id="fSpent" placeholder="0" step="0.01"><button type="button" class="secondary mic-btn" data-target="fSpent" data-numeric="1" title="Speak amount">🎤</button></div>
+    </div>
+    <div class="field"><label>Money received</label>
+      <div class="field-row"><input type="number" id="fReceived" placeholder="0" step="0.01"><button type="button" class="secondary mic-btn" data-target="fReceived" data-numeric="1" title="Speak amount">🎤</button></div>
+    </div>
+    <div class="field"><label>Business income</label>
+      <div class="field-row"><input type="number" id="fBusiness" placeholder="0" step="0.01"><button type="button" class="secondary mic-btn" data-target="fBusiness" data-numeric="1" title="Speak amount">🎤</button></div>
+    </div>
+    <div class="field"><label>Person / customer name (optional)</label>
+      <div class="field-row"><input type="text" id="fPerson" placeholder="e.g. Ramesh"><button type="button" class="secondary mic-btn" data-target="fPerson" title="Speak name">🎤</button></div>
+    </div>
+    <div class="field"><label>Notes</label>
+      <div class="field-row">
+        <textarea id="fNotes" rows="2" placeholder="optional"></textarea>
+        <button type="button" class="secondary mic-btn" data-target="fNotes" title="Speak notes">🎤</button>
+      </div>
+      <p class="small" id="micStatus"></p>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="cancelBtn">Cancel</button>
+      <button id="saveBtn">Save</button>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="clearBtn">Clear this entry (wrong date?)</button>
+      <button class="danger" id="deleteBtn" style="display:none;">Delete entry</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="ledgerModalBg">
+  <div class="modal">
+    <h2>New ledger</h2>
+    <div class="field"><label>Name (e.g. Father's Business, Brother's Company)</label><input type="text" id="newLedgerName" placeholder="Name"></div>
+    <div class="modal-actions">
+      <button class="secondary" id="cancelLedgerBtn">Cancel</button>
+      <button id="saveLedgerBtn">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="dueModalBg">
+  <div class="modal">
+    <h2>Add pending due</h2>
+    <div class="field"><label>Type</label>
+      <select id="dueType"><option value="owed_to_me">Owed to me</option><option value="i_owe">I owe</option></select>
+    </div>
+    <div class="field"><label>Person name</label>
+      <div class="field-row"><input type="text" id="duePerson" placeholder="e.g. Ramesh"><button type="button" class="secondary mic-btn" data-target="duePerson" title="Speak name">🎤</button></div>
+    </div>
+    <div class="field"><label>Amount</label>
+      <div class="field-row"><input type="number" id="dueAmount" placeholder="0" step="0.01"><button type="button" class="secondary mic-btn" data-target="dueAmount" data-numeric="1" title="Speak amount">🎤</button></div>
+    </div>
+    <div class="field"><label>Due date (optional)</label><input type="date" id="dueDate"></div>
+    <div class="field"><label>Notes</label>
+      <div class="field-row"><textarea id="dueNotes" rows="2"></textarea><button type="button" class="secondary mic-btn" data-target="dueNotes" title="Speak notes">🎤</button></div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="cancelDueBtn">Cancel</button>
+      <button id="saveDueBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCoPlIIo43iOLdntUOow5gijnJdnG_fVu8",
+  authDomain: "daily-ledger-a9167.firebaseapp.com",
+  projectId: "daily-ledger-a9167",
+  storageBucket: "daily-ledger-a9167.firebasestorage.app",
+  messagingSenderId: "10056005863",
+  appId: "1:10056005863:web:4c4ae8020605f9b0e8ca42"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DOW = ["S","M","T","W","T","F","S"];
+let currentUser = null;
+let state = { ledgers: {}, activeLedger: null, dues: [], activity: [] };
+let currentYear = new Date().getFullYear();
+let editingDate = null;
+let currentTab = 'calendar';
+
+function fmt(n){ n = Number(n)||0; return n.toLocaleString(undefined,{maximumFractionDigits:2}); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function dateKey(y,m,d){ return `${y}-${pad(m+1)}-${pad(d)}`; }
+function nowStr(){ return new Date().toLocaleString(); }
+
+function userDocRef(){ return db.collection('users').doc(currentUser.uid); }
+
+async function loadState(){
+  const snap = await userDocRef().get();
+  if(snap.exists){
+    state = snap.data();
+    if(!state.dues) state.dues = [];
+    if(!state.activity) state.activity = [];
+  } else {
+    const id = 'ledger_' + Date.now();
+    state = { ledgers: { [id]: { name: "My ledger", entries: {} } }, activeLedger: id, dues: [], activity: [] };
+    await saveState();
+  }
+  if(!state.activeLedger || !state.ledgers[state.activeLedger]){
+    state.activeLedger = Object.keys(state.ledgers)[0];
+  }
+}
+
+async function saveState(){
+  try{ await userDocRef().set(state); }catch(e){ console.error('save failed', e); }
+}
+
+function logActivity(text){
+  state.activity = state.activity || [];
+  state.activity.unshift(`${nowStr()} — ${text}`);
+  state.activity = state.activity.slice(0, 200);
+}
+
+function renderYearSelect(){
+  const sel = document.getElementById('yearSelect');
+  sel.innerHTML = '';
+  const now = new Date().getFullYear();
+  for(let y = now - 5; y <= now + 15; y++){
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    if(y === currentYear) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.onchange = () => { currentYear = Number(sel.value); render(); };
+}
+
+function renderTabs(){
+  const tabs = document.getElementById('ledgerTabs');
+  tabs.innerHTML = '';
+  Object.keys(state.ledgers).forEach(id => {
+    const pill = document.createElement('div');
+    pill.className = 'ledger-pill' + (id === state.activeLedger ? ' active' : '');
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = state.ledgers[id].name;
+    nameSpan.onclick = () => { state.activeLedger = id; saveState(); render(); };
+    pill.appendChild(nameSpan);
+    if(Object.keys(state.ledgers).length > 1){
+      const x = document.createElement('span');
+      x.className = 'x';
+      x.textContent = '✕';
+      x.onclick = async (e) => {
+        e.stopPropagation();
+        if(confirm('Remove ledger "' + state.ledgers[id].name + '"? This cannot be undone.')){
+          const name = state.ledgers[id].name;
+          delete state.ledgers[id];
+          if(state.activeLedger === id) state.activeLedger = Object.keys(state.ledgers)[0];
+          logActivity(`Deleted ledger "${name}"`);
+          await saveState();
+          render();
+        }
+      };
+      pill.appendChild(x);
+    }
+    tabs.appendChild(pill);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-ledger-btn';
+  addBtn.textContent = '+';
+  addBtn.title = 'Add ledger';
+  addBtn.onclick = () => { document.getElementById('newLedgerName').value=''; document.getElementById('ledgerModalBg').classList.add('open'); };
+  tabs.appendChild(addBtn);
+}
+
+function getLedger(){ return state.ledgers[state.activeLedger]; }
+
+function renderSummary(){
+  const ledger = getLedger();
+  let spent=0, received=0, business=0;
+  Object.keys(ledger.entries).forEach(k => {
+    if(k.startsWith(String(currentYear)+'-')){
+      const e = ledger.entries[k];
+      spent += Number(e.spent)||0;
+      received += Number(e.received)||0;
+      business += Number(e.business)||0;
+    }
+  });
+  const net = received + business - spent;
+  return `
+    <div class="summary">
+      <div class="box"><div class="lbl">Spent (${currentYear})</div><div class="val red">${fmt(spent)}</div></div>
+      <div class="box"><div class="lbl">Received (${currentYear})</div><div class="val green">${fmt(received)}</div></div>
+      <div class="box"><div class="lbl">Business income (${currentYear})</div><div class="val amber">${fmt(business)}</div></div>
+      <div class="box"><div class="lbl">Net (${currentYear})</div><div class="val">${fmt(net)}</div></div>
+    </div>
+  `;
+}
+
+function renderCalendar(){
+  let html = '<div class="months">';
+  for(let m=0; m<12; m++){
+    const firstDay = new Date(currentYear, m, 1).getDay();
+    const daysInMonth = new Date(currentYear, m+1, 0).getDate();
+    html += `<div class="month"><h3>${MONTHS[m]}</h3><div class="cal">`;
+    DOW.forEach(d => html += `<div class="dow">${d}</div>`);
+    for(let i=0;i<firstDay;i++) html += `<div class="day empty"></div>`;
+    const todayStr = new Date().toISOString().slice(0,10);
+    for(let d=1; d<=daysInMonth; d++){
+      const key = dateKey(currentYear, m, d);
+      const hasData = getLedger().entries[key];
+      const isToday = key === todayStr;
+      html += `<div class="day ${hasData?'has-data':''} ${isToday?'today':''}" data-key="${key}" onclick="openDay('${key}')">${d}${hasData?'<span class="dot"></span>':''}</div>`;
+    }
+    html += `</div></div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderDues(){
+  const owedToMe = state.dues.filter(d => d.type === 'owed_to_me');
+  const iOwe = state.dues.filter(d => d.type === 'i_owe');
+  function list(items, emptyText){
+    if(items.length === 0) return `<p class="small">${emptyText}</p>`;
+    return items.map((d) => `
+      <div class="due-item">
+        <div><b>${d.person}</b> — ${fmt(d.amount)}${d.dueDate ? ' · due '+d.dueDate : ''}${d.notes ? ' · '+d.notes : ''}</div>
+        <button class="secondary" style="padding:4px 8px;font-size:12px;" onclick="resolveDue('${d.id}')">Mark settled</button>
+      </div>`).join('');
+  }
+  return `
+    <div class="card">
+      <h3 style="margin:0 0 8px;font-size:15px;">Owed to me</h3>
+      ${list(owedToMe, 'Nothing pending.')}
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 8px;font-size:15px;">I owe</h3>
+      ${list(iOwe, 'Nothing pending.')}
+    </div>
+    <button id="addDueBtn">+ Add pending due</button>
+  `;
+}
+
+function renderActivity(){
+  if(!state.activity || state.activity.length === 0) return `<p class="small">No activity yet.</p>`;
+  return `<div class="card"><div class="activity-log">${state.activity.map(a => `<div>${a}</div>`).join('')}</div></div>`;
+}
+
+function renderMonthlySummary(){
+  const ledger = getLedger();
+  const monthData = MONTHS.map(() => ({ spent:0, received:0, business:0 }));
+  Object.keys(ledger.entries).forEach(k => {
+    if(k.startsWith(String(currentYear)+'-')){
+      const m = Number(k.split('-')[1]) - 1;
+      const e = ledger.entries[k];
+      monthData[m].spent += Number(e.spent)||0;
+      monthData[m].received += Number(e.received)||0;
+      monthData[m].business += Number(e.business)||0;
+    }
+  });
+  const incomeByMonth = monthData.map(m => m.received + m.business);
+  const maxIncome = Math.max(...incomeByMonth);
+  const minIncome = Math.min(...incomeByMonth.filter((v,i) => v > 0 || incomeByMonth.every(x=>x===0)));
+  const maxIdx = incomeByMonth.indexOf(maxIncome);
+  const minIdx = incomeByMonth.indexOf(minIncome);
+  const hasAny = incomeByMonth.some(v => v > 0);
+
+  let rows = MONTHS.map((name, i) => {
+    const m = monthData[i];
+    const income = m.received + m.business;
+    const net = income - m.spent;
+    let badge = '';
+    if(hasAny && i === maxIdx) badge = ' <span class="green small">▲ highest income</span>';
+    if(hasAny && i === minIdx && minIdx !== maxIdx) badge = ' <span class="red small">▼ lowest income</span>';
+    return `<div class="due-item">
+      <div><b>${name}</b>${badge}<br>
+        <span class="small">Spent: ${fmt(m.spent)} · Received: ${fmt(m.received)} · Business: ${fmt(m.business)} · Net: ${fmt(net)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div class="card"><h3 style="margin:0 0 8px;font-size:15px;">Monthly summary — ${currentYear}</h3>${rows}</div>`;
+}
+
+function render(){
+  renderYearSelect();
+  renderTabs();
+  document.querySelectorAll('#mainTabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === currentTab));
+  const content = document.getElementById('content');
+  if(currentTab === 'calendar'){
+    content.innerHTML = `<div class="page page-calendar">
+      <div class="page-title"><div class="page-icon page-icon-cal">📅</div><span class="page-label page-label-cal">Calendar</span></div>
+      ${renderSummary()}${renderCalendar()}
+    </div>`;
+  } else if(currentTab === 'dues'){
+    content.innerHTML = `<div class="page page-dues">
+      <div class="page-title"><div class="page-icon page-icon-dues">💸</div><span class="page-label page-label-dues">Pending Dues</span></div>
+      ${renderDues()}
+    </div>`;
+    document.getElementById('addDueBtn').onclick = () => {
+      document.getElementById('duePerson').value='';
+      document.getElementById('dueAmount').value='';
+      document.getElementById('dueDate').value='';
+      document.getElementById('dueNotes').value='';
+      document.getElementById('dueModalBg').classList.add('open');
+    };
+  } else if(currentTab === 'activity'){
+    content.innerHTML = `<div class="page page-activity">
+      <div class="page-title"><div class="page-icon page-icon-activity">🕐</div><span class="page-label page-label-activity">Activity Log</span></div>
+      ${renderActivity()}
+    </div>`;
+  } else if(currentTab === 'monthly'){
+    content.innerHTML = `<div class="page page-monthly">
+      <div class="page-title"><div class="page-icon page-icon-monthly">📊</div><span class="page-label page-label-monthly">Monthly Summary</span></div>
+      ${renderMonthlySummary()}
+    </div>`;
+  }
+}
+
+window.openDay = function(key){
+  editingDate = key;
+  const entry = getLedger().entries[key] || {};
+  document.getElementById('modalTitle').textContent = key;
+  document.getElementById('fSpent').value = entry.spent ?? '';
+  document.getElementById('fReceived').value = entry.received ?? '';
+  document.getElementById('fBusiness').value = entry.business ?? '';
+  document.getElementById('fPerson').value = entry.person ?? '';
+  document.getElementById('fNotes').value = entry.notes ?? '';
+  document.getElementById('deleteBtn').style.display = getLedger().entries[key] ? 'block' : 'none';
+  document.getElementById('modalBg').classList.add('open');
+};
+
+window.resolveDue = async function(id){
+  state.dues = state.dues.filter(d => d.id !== id);
+  logActivity(`Marked a due as settled`);
+  await saveState();
+  render();
+};
+
+document.getElementById('mainTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  currentTab = btn.dataset.tab;
+  render();
+});
+
+document.getElementById('clearBtn').onclick = () => {
+  document.getElementById('fSpent').value = '';
+  document.getElementById('fReceived').value = '';
+  document.getElementById('fBusiness').value = '';
+  document.getElementById('fPerson').value = '';
+  document.getElementById('fNotes').value = '';
+};
+
+// Voice input — works for all mic buttons (Web Speech API, best on Chrome/Android)
+(function setupMic(){
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const micButtons = document.querySelectorAll('.mic-btn');
+  const micStatus = document.getElementById('micStatus');
+  if(!SpeechRecognition){
+    micButtons.forEach(b => b.style.display = 'none');
+    return;
+  }
+  micButtons.forEach(btn => {
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-IN';
+    let listening = false;
+
+    btn.onclick = () => {
+      if(listening){ recognition.stop(); return; }
+      try{
+        recognition.start();
+        listening = true;
+        btn.classList.add('listening');
+        if(micStatus) micStatus.textContent = 'Listening… speak now';
+      }catch(e){
+        if(micStatus) micStatus.textContent = 'Could not start microphone';
+      }
+    };
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      const targetId = btn.dataset.target;
+      const field = document.getElementById(targetId);
+      if(btn.dataset.numeric){
+        const numMatch = text.replace(/,/g,'').match(/[\d.]+/);
+        if(numMatch) field.value = numMatch[0];
+        if(micStatus) micStatus.textContent = 'Heard: "' + text + '" → set to ' + (numMatch ? numMatch[0] : '?');
+      } else {
+        field.value = field.value ? field.value + ' ' + text : text;
+        if(micStatus) micStatus.textContent = 'Added: "' + text + '"';
+      }
+    };
+    recognition.onerror = () => { if(micStatus) micStatus.textContent = 'Voice input failed — try typing instead'; };
+    recognition.onend = () => { listening = false; btn.classList.remove('listening'); };
+  });
+})();
+
+document.getElementById('cancelBtn').onclick = () => document.getElementById('modalBg').classList.remove('open');
+
+document.getElementById('saveBtn').onclick = async () => {
+  const spent = document.getElementById('fSpent').value;
+  const received = document.getElementById('fReceived').value;
+  const business = document.getElementById('fBusiness').value;
+  const person = document.getElementById('fPerson').value;
+  const notes = document.getElementById('fNotes').value;
+  if(!spent && !received && !business && !notes && !person){
+    delete getLedger().entries[editingDate];
+    logActivity(`Removed entry for ${editingDate}`);
+  } else {
+    getLedger().entries[editingDate] = { spent: spent||0, received: received||0, business: business||0, person: person||'', notes: notes||'' };
+    logActivity(`Saved entry for ${editingDate} (spent ${fmt(spent||0)}, received ${fmt(received||0)}, business ${fmt(business||0)})`);
+  }
+  await saveState();
+  document.getElementById('modalBg').classList.remove('open');
+  render();
+};
+
+document.getElementById('deleteBtn').onclick = async () => {
+  delete getLedger().entries[editingDate];
+  logActivity(`Deleted entry for ${editingDate}`);
+  await saveState();
+  document.getElementById('modalBg').classList.remove('open');
+  render();
+};
+
+document.getElementById('cancelLedgerBtn').onclick = () => document.getElementById('ledgerModalBg').classList.remove('open');
+document.getElementById('saveLedgerBtn').onclick = async () => {
+  const name = document.getElementById('newLedgerName').value.trim();
+  if(!name) return;
+  const id = 'ledger_' + Date.now();
+  state.ledgers[id] = { name, entries: {} };
+  state.activeLedger = id;
+  logActivity(`Created ledger "${name}"`);
+  await saveState();
+  document.getElementById('ledgerModalBg').classList.remove('open');
+  render();
+};
+
+document.getElementById('cancelDueBtn').onclick = () => document.getElementById('dueModalBg').classList.remove('open');
+document.getElementById('saveDueBtn').onclick = async () => {
+  const person = document.getElementById('duePerson').value.trim();
+  const amount = document.getElementById('dueAmount').value;
+  if(!person || !amount) return;
+  state.dues.push({
+    id: 'due_' + Date.now(),
+    type: document.getElementById('dueType').value,
+    person, amount,
+    dueDate: document.getElementById('dueDate').value,
+    notes: document.getElementById('dueNotes').value
+  });
+  logActivity(`Added pending due: ${person} — ${fmt(amount)}`);
+  await saveState();
+  document.getElementById('dueModalBg').classList.remove('open');
+  render();
+};
+
+document.getElementById('exportBtn').onclick = () => {
+  const ledger = getLedger();
+  let csv = 'Date,Spent,Received,Business Income,Person,Notes\n';
+  Object.keys(ledger.entries).sort().forEach(k => {
+    if(k.startsWith(String(currentYear)+'-')){
+      const e = ledger.entries[k];
+      csv += `${k},${e.spent||0},${e.received||0},${e.business||0},"${(e.person||'').replace(/"/g,'')}","${(e.notes||'').replace(/"/g,'')}"\n`;
+    }
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${ledger.name}-${currentYear}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+document.getElementById('logoutBtn').onclick = () => auth.signOut();
+
+document.getElementById('loginBtn').onclick = async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  document.getElementById('authError').textContent = '';
+  try{ await auth.signInWithEmailAndPassword(email, password); }
+  catch(e){ document.getElementById('authError').textContent = e.message; }
+};
+
+document.getElementById('signupBtn').onclick = async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  document.getElementById('authError').textContent = '';
+  try{ await auth.createUserWithEmailAndPassword(email, password); }
+  catch(e){ document.getElementById('authError').textContent = e.message; }
+};
+
+auth.onAuthStateChanged(async (user) => {
+  if(user){
+    currentUser = user;
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('appScreen').classList.remove('hidden');
+    document.getElementById('userEmailLabel').textContent = user.email;
+    await loadState();
+    render();
+  } else {
+    currentUser = null;
+    document.getElementById('authScreen').classList.remove('hidden');
+    document.getElementById('appScreen').classList.add('hidden');
+  }
+});
+</script>
+</body>
+</html>
